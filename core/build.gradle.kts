@@ -25,6 +25,7 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("org.junit.platform:junit-platform-suite:1.10.0")
 }
 
 tasks.test {
