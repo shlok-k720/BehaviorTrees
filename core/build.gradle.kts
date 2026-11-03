@@ -23,6 +23,7 @@ dependencies {
     // must be visible to consumers too. kotlin("stdlib") follows the plugin version.
     api(kotlin("stdlib"))
 
+    testImplementation(libs.junit)
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
 }
 
