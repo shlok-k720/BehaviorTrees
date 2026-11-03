@@ -65,9 +65,15 @@ abstract class BehaviorNode(val name: String, protected val blackboard: Blackboa
         logLifecycleEvent(Logger.NODE_RESET)
     }
 
-    protected fun logLifecycleEvent(caption: String) {
+    private fun logLifecycleEvent(caption: String) {
         val type = javaClass.simpleName
         val nodeStatus = status?.name ?: "NONE"
         Logger.log(caption, "name=$name,type=$type,status=$nodeStatus")
+    }
+
+    protected fun log(data: String) {
+        val type = javaClass.simpleName
+        val nodeStatus = status?.name ?: "NONE"
+        Logger.log("com.rmsftc.bttree: Manual Node Log", "name=$name,type=$type,status=$nodeStatus,data=$data")
     }
 }

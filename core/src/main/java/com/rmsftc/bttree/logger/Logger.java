@@ -5,11 +5,11 @@ import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 public class Logger {
-    public static final String NODE_STARTED = "behaviorTrees.node.started";
-    public static final String NODE_TICKED = "behaviorTrees.node.ticked";
-    public static final String NODE_FINISHED = "behaviorTrees.node.finished";
-    public static final String NODE_INVALIDATED = "behaviorTrees.node.invalidated";
-    public static final String NODE_RESET = "behaviorTrees.node.reset";
+    public static final String NODE_STARTED = "com.rmsftc.bttree: Node Started";
+    public static final String NODE_TICKED = "com.rmsftc.bttree: Node Ticked";
+    public static final String NODE_FINISHED = "com.rmsftc.bttree: Node Finished";
+    public static final String NODE_INVALIDATED = "com.rmsftc.bttree: Node Invalidated";
+    public static final String NODE_RESET = "com.rmsftc.bttree: Node Reset";
 
     private static final Set<LogSystem> loggers = new CopyOnWriteArraySet<>();
 
