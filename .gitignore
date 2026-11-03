@@ -1,6 +1,12 @@
 *.iml
 .gradle
+**/.gradle/
+/.kotlin/
 /local.properties
+*.keystore
+*.jks
+*.hprof
+hs_err_pid*
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -9,9 +15,15 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+**/build/
 /captures
 .externalNativeBuild
 .cxx
 local.properties
 
 **/.DS_Store
+**/*.log
+**/.externalNativeBuild/
+**/.cxx/
+**/test-results/
+**/reports/
