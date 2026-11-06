@@ -93,4 +93,51 @@ class BlackboardTest {
             blackboard.registerCallback(null as String?, BlackboardCallback<Any> { _, _ -> })
         }
     }
+
+    @Test
+    fun `getIfPresent reads without writing and without throwing on wrong types`() {
+        val blackboard = Blackboard()
+        blackboard.set("name", "robot")
+
+        assertEquals("robot", blackboard.getIfPresent("name", String::class.java))
+        assertNull(blackboard.getIfPresent("missing", String::class.java))
+        assertNull(blackboard.getIfPresent("name", Int::class.javaObjectType))
+        // A read must not store anything.
+        assertFalse(blackboard.has("missing"))
+    }
+
+    @Test
+    fun `removeValue keeps callbacks and removeCallbacks keeps the value`() {
+        val blackboard = Blackboard()
+        var calls = 0
+        blackboard.set("key", 1)
+        blackboard.registerCallback("key") { _, _ -> calls++ }
+
+        blackboard.removeValue("key")
+        assertFalse(blackboard.has("key"))
+        assertEquals(1, blackboard.getCallbacks("key").size)
+        blackboard.set("key", 2)
+        assertEquals(1, calls)
+
+        blackboard.removeCallbacks("key")
+        assertTrue(blackboard.getCallbacks("key").isEmpty())
+        assertEquals(2, blackboard.get("key", Int::class.javaObjectType))
+    }
+
+    @Test
+    fun `putIfAbsent stores only once and returns the stored value`() {
+        val blackboard = Blackboard()
+        var calls = 0
+        blackboard.registerCallback("count") { _, _ -> calls++ }
+
+        assertEquals(3, blackboard.putIfAbsent("count", Int::class.javaObjectType, 3))
+        assertEquals(1, calls)
+        // Second call leaves the existing value (and its callbacks) alone.
+        assertEquals(3, blackboard.putIfAbsent("count", Int::class.javaObjectType, 9))
+        assertEquals(1, calls)
+        assertEquals(3, blackboard.get("count", Int::class.javaObjectType))
+        assertThrows(ClassCastException::class.java) {
+            blackboard.putIfAbsent("count", String::class.java, "wrong type")
+        }
+    }
 }
