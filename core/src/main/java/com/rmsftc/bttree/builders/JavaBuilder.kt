@@ -5,11 +5,17 @@ import com.rmsftc.bttree.blackboard.Blackboard
 import com.rmsftc.bttree.NodeStatus
 import com.rmsftc.bttree.nodes.ActionNode
 import com.rmsftc.bttree.nodes.ConditionNode
+import com.rmsftc.bttree.nodes.FallbackNode
+import com.rmsftc.bttree.nodes.InverterNode
 import com.rmsftc.bttree.nodes.ParallelNode
 import com.rmsftc.bttree.nodes.ParallelPolicy
 import com.rmsftc.bttree.nodes.ReactiveSelectorNode
+import com.rmsftc.bttree.nodes.RepeatNode
+import com.rmsftc.bttree.nodes.RetryNode
 import com.rmsftc.bttree.nodes.SequenceNode
+import com.rmsftc.bttree.nodes.SucceederNode
 import com.rmsftc.bttree.nodes.TimeoutNode
+import java.time.Duration
 import java.util.function.BooleanSupplier
 import java.util.function.Consumer
 import java.util.function.Supplier
@@ -49,6 +55,12 @@ class JavaBuilder private constructor(private val blackboard: Blackboard) {
         return this
     }
 
+    fun fallback(name: String, block: Consumer<JavaBuilder>): JavaBuilder {
+        val nestedBuilder = JavaBuilder(blackboard, block)
+        children.add(FallbackNode(name, blackboard, nestedBuilder.children.toList()))
+        return this
+    }
+
     fun condition(name: String, check: BooleanSupplier): JavaBuilder {
         children.add(ConditionNode(name, blackboard, check))
         return this
@@ -56,6 +68,63 @@ class JavaBuilder private constructor(private val blackboard: Blackboard) {
 
     fun action(name: String, start: Runnable?, tick: Supplier<NodeStatus>, end: Runnable?): JavaBuilder {
         children.add(ActionNode(name, blackboard, { start?.run() }, tick, { end?.run() }))
+        return this
+    }
+
+    // Tick-only action: no start or end callbacks.
+    fun action(name: String, tick: Supplier<NodeStatus>): JavaBuilder {
+        return action(name, null, tick, null)
+    }
+
+    // Decorators wrap exactly one child. The block form requires the
+    // block to build a single node (wrap several nodes in sequence()
+    // first); the node form takes an already-built node.
+    private fun singleChild(decoratorKind: String, decoratorName: String, block: Consumer<JavaBuilder>): BehaviorNode {
+        val nestedBuilder = JavaBuilder(blackboard, block)
+        require(nestedBuilder.children.size == 1) {
+            "$decoratorKind \"$decoratorName\" requires exactly one child node, " +
+                "but the block built ${nestedBuilder.children.size}"
+        }
+        return nestedBuilder.children.single()
+    }
+
+    fun inverter(name: String, block: Consumer<JavaBuilder>): JavaBuilder {
+        children.add(InverterNode(name, blackboard, singleChild("inverter", name, block)))
+        return this
+    }
+
+    fun inverter(name: String, child: BehaviorNode): JavaBuilder {
+        children.add(InverterNode(name, blackboard, child))
+        return this
+    }
+
+    fun succeeder(name: String, block: Consumer<JavaBuilder>): JavaBuilder {
+        children.add(SucceederNode(name, blackboard, singleChild("succeeder", name, block)))
+        return this
+    }
+
+    fun succeeder(name: String, child: BehaviorNode): JavaBuilder {
+        children.add(SucceederNode(name, blackboard, child))
+        return this
+    }
+
+    fun retry(name: String, maxAttempts: Int, block: Consumer<JavaBuilder>): JavaBuilder {
+        children.add(RetryNode(name, blackboard, maxAttempts, singleChild("retry", name, block)))
+        return this
+    }
+
+    fun retry(name: String, maxAttempts: Int, child: BehaviorNode): JavaBuilder {
+        children.add(RetryNode(name, blackboard, maxAttempts, child))
+        return this
+    }
+
+    fun repeat(name: String, targetCount: Int, block: Consumer<JavaBuilder>): JavaBuilder {
+        children.add(RepeatNode(name, blackboard, targetCount, singleChild("repeat", name, block)))
+        return this
+    }
+
+    fun repeat(name: String, targetCount: Int, child: BehaviorNode): JavaBuilder {
+        children.add(RepeatNode(name, blackboard, targetCount, child))
         return this
     }
 
@@ -71,6 +140,11 @@ class JavaBuilder private constructor(private val blackboard: Blackboard) {
             )
         )
         return this
+    }
+
+    // Duration overload: waitMs("intake", Duration.ofSeconds(2)) { ... }
+    fun waitMs(name: String, duration: Duration, block: Consumer<JavaBuilder>): JavaBuilder {
+        return waitMs(name, duration.toMillis(), block)
     }
 
     fun parallel(name: String, policy: ParallelPolicy, block: Consumer<JavaBuilder>): JavaBuilder {
