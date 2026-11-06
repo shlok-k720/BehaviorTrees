@@ -6,8 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
 ### Added
 
+- `TreesManager` for creating, ticking, resetting, and invalidating FTC behavior
+  trees that share a blackboard, with a telemetry logger helper.
 - `InverterNode`, `SucceederNode`, `RetryNode`, `RepeatNode`, and `FallbackNode`
   decorators / nodes, with builder methods in both `JavaBuilder` and `KotlinBuilder`.
 - `ParallelPolicy.ANY_SUCCESS` and `ParallelPolicy.atLeast(n)` threshold policy.
