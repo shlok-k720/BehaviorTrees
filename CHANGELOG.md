@@ -28,7 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Stale `LimiterConfig` reference in a `core/build.gradle.kts` comment.
 - Removed the tracked `.kotlin/sessions` compiler file from the repository
-  (the `.gitignrc` config file stays — Shlok uses gitign for this project).
 - Aligned `gradle/libs.versions.toml` plugin versions with the versions actually
   applied in the root build file (Kotlin 2.1.20, AGP 8.7.0).
 
