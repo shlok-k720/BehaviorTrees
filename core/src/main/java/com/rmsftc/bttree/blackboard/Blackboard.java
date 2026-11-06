@@ -120,6 +120,45 @@ public class Blackboard {
         return getOrDefault(convertToString(key), type, defaultValue);
     }
 
+    // Pure read: like get(), but returns null instead of throwing when
+    // the stored value is not of the requested type, and — unlike
+    // getOrDefault() — never writes anything into the board. Use it
+    // for conditions that poll optional state without mutating it.
+    public <T> T getIfPresent(String key, Class<T> type) {
+        Object raw = data.get(key);
+        if (raw != null && type.isInstance(raw)) {
+            return type.cast(raw);
+        }
+        return null;
+    }
+
+    public <T> T getIfPresent(Enum<?> key, Class<T> type) {
+        return getIfPresent(convertToString(key), type);
+    }
+
+    // Store a value only if the key is not already present. Returns
+    // the value now stored for the key (the existing one, or the new
+    // one when the key was absent). Unlike a has() check followed by
+    // set(), the check and the write happen together, and unlike
+    // getOrDefault() this fires callbacks only when a value is
+    // actually stored. Throws ClassCastException if the key already
+    // holds a value of a different type, like get() does.
+    public <T> T putIfAbsent(String key, Class<T> type, T value) {
+        Objects.requireNonNull(key, "key");
+        Objects.requireNonNull(type, "type");
+        Objects.requireNonNull(value, "value");
+        Object existing = data.get(key);
+        if (existing != null) {
+            return type.cast(existing);
+        }
+        set(key, value);
+        return value;
+    }
+
+    public <T> T putIfAbsent(Enum<?> key, Class<T> type, T value) {
+        return putIfAbsent(convertToString(key), type, value);
+    }
+
     // Check if a key exists (useful for condition nodes)
     public boolean has(String key) {
         return data.containsKey(key);
@@ -128,7 +167,9 @@ public class Blackboard {
     public boolean has(Enum<?> key) {return has(convertToString(key));}
 
     // Clear specific keys between autonomous runs. Note: this also
-    // removes the callbacks registered for that key.
+    // removes the callbacks registered for that key. To clear only
+    // the value (keeping callbacks) use removeValue(); to drop only
+    // the callbacks (keeping the value) use removeCallbacks().
     public void remove(String key) {
         data.remove(key);
         callbacks.remove(key);
@@ -136,6 +177,26 @@ public class Blackboard {
 
     public void remove(Enum<?> key) {
         remove(convertToString(key));
+    }
+
+    // Remove the stored value for a key, keeping any callbacks
+    // registered for it. Use this when resetting state between runs
+    // without losing interceptors (e.g. an emergency-stop callback).
+    public void removeValue(String key) {
+        data.remove(key);
+    }
+
+    public void removeValue(Enum<?> key) {
+        removeValue(convertToString(key));
+    }
+
+    // Deregister every callback for a key, keeping the stored value.
+    public void removeCallbacks(String key) {
+        callbacks.remove(key);
+    }
+
+    public void removeCallbacks(Enum<?> key) {
+        removeCallbacks(convertToString(key));
     }
 
 

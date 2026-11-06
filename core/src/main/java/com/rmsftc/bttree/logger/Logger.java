@@ -37,6 +37,9 @@ public class Logger {
     public static void log(String caption, String data) {
         Objects.requireNonNull(caption, "caption");
         Objects.requireNonNull(data, "data");
+        // Nothing is listening: skip the timestamp and the iteration.
+        // Every node tick logs, so this is on the hot path.
+        if (loggers.isEmpty()) return;
 
         double timestampMs = System.currentTimeMillis();
         loggers.forEach(logger -> logger.log(caption, data, timestampMs));

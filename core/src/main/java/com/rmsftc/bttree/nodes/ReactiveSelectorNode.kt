@@ -11,6 +11,8 @@ class ReactiveSelectorNode(name: String, board: Blackboard, children: List<Behav
 
     private var lastRunningIndex = -1
 
+    override fun children(): List<BehaviorNode> = childList
+
     override fun onStart() {
         lastRunningIndex = -1
     }

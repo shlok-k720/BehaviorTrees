@@ -19,8 +19,9 @@ kotlin {
 }
 
 dependencies {
-    // Kotlin types appear in the public API (LimiterConfig), so the stdlib
-    // must be visible to consumers too. kotlin("stdlib") follows the plugin version.
+    // Kotlin types appear in the public API (NodeStatus, BehaviorNode),
+    // so the stdlib must be visible to consumers too. kotlin("stdlib")
+    // follows the plugin version.
     api(kotlin("stdlib"))
 
     testImplementation(libs.junit)

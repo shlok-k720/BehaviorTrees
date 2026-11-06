@@ -1,5 +1,6 @@
 package com.rmsftc.bttree.nodes
 
+import com.rmsftc.bttree.BehaviorNode
 import com.rmsftc.bttree.NodeStatus
 import com.rmsftc.bttree.TestBehaviorNode
 import com.rmsftc.bttree.blackboard.Blackboard
@@ -32,5 +33,16 @@ class SequenceNodeTest {
         assertEquals(1, failing.ends)
         sequence.reset()
         assertEquals(null, failing.status)
+    }
+
+    @Test
+    fun `mutating the callers child list after construction does not change the sequence`() {
+        val board = Blackboard()
+        val child = TestBehaviorNode("child", board, mutableListOf(NodeStatus.SUCCESS))
+        val mutable = mutableListOf<BehaviorNode>(child)
+        val sequence = SequenceNode("sequence", board, mutable)
+        mutable.clear()
+
+        assertEquals(NodeStatus.SUCCESS, sequence.tick())
     }
 }

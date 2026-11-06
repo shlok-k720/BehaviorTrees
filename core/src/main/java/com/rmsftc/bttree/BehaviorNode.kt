@@ -39,6 +39,37 @@ abstract class BehaviorNode(val name: String, protected val blackboard: Blackboa
     protected open fun onEnd() {}
 
     /**
+     * The direct children of this node, or an empty list for leaf nodes.
+     * Composites and decorators override this; it powers [forEachNode]
+     * and [toTreeString].
+     */
+    open fun children(): List<BehaviorNode> = emptyList()
+
+    /** Calls [action] on this node and then, depth-first, on every descendant. */
+    fun forEachNode(action: (BehaviorNode) -> Unit) {
+        action(this)
+        children().forEach { it.forEachNode(action) }
+    }
+
+    /**
+     * An indented dump of this subtree: one line per node with its name,
+     * node type, and current status. Handy for telemetry or logcat while
+     * debugging a tree.
+     */
+    fun toTreeString(): String {
+        val sb = StringBuilder()
+        appendNode(this, sb, 0)
+        return sb.toString().trimEnd()
+    }
+
+    private fun appendNode(node: BehaviorNode, sb: StringBuilder, depth: Int) {
+        repeat(depth) { sb.append("  ") }
+        sb.append(node.name).append(" [").append(node.javaClass.simpleName).append("] ")
+            .append(node.status?.name ?: "NONE").append('\n')
+        node.children().forEach { appendNode(it, sb, depth + 1) }
+    }
+
+    /**
      * Abort this node if it is currently running. A no-op on a node
      * that is not started, so aborting an already-finished child does
      * not call onEnd() a second time or flip its finished result to

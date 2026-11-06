@@ -18,6 +18,8 @@ class ParallelNode(name: String, blackboard: Blackboard, private val policy: Par
     private val finished = MutableList(childList.size) { false }
     private val childStatuses = MutableList(childList.size) { NodeStatus.RUNNING }
 
+    override fun children(): List<BehaviorNode> = childList
+
     override fun onStart() {
         finished.fill(false)
         childStatuses.fill(NodeStatus.RUNNING)
