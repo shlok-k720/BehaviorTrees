@@ -11,4 +11,14 @@ class NodeStatusTest {
             NodeStatus.entries
         )
     }
+
+    @Test
+    fun `terminal and running helpers match the enum value`() {
+        assertEquals(true, NodeStatus.SUCCESS.isTerminal())
+        assertEquals(true, NodeStatus.FAILURE.isTerminal())
+        assertEquals(false, NodeStatus.RUNNING.isTerminal())
+        assertEquals(false, NodeStatus.SUCCESS.isRunning())
+        assertEquals(false, NodeStatus.FAILURE.isRunning())
+        assertEquals(true, NodeStatus.RUNNING.isRunning())
+    }
 }
