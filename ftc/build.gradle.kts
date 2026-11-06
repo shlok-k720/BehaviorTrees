@@ -45,6 +45,8 @@ dependencies {
 
     // Optional: uncomment if you wire up FTC Dashboard graphing in the OpModes.
     // compileOnly("com.acmerobotics.dashboard:dashboard:0.4.16")
+
+    testImplementation(libs.junit)
 }
 
 publishing {
