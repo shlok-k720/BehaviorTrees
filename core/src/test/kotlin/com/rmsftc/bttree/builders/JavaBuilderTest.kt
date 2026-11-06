@@ -5,6 +5,7 @@ import com.rmsftc.bttree.blackboard.Blackboard
 import com.rmsftc.bttree.nodes.ParallelPolicy
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.time.Duration
 import java.util.function.Consumer
 import java.util.function.Supplier
 
@@ -49,5 +50,24 @@ class JavaBuilderTest {
         blackboard.set("target", "updated")
 
         assertEquals("updated", callbackValue)
+    }
+
+    @Test
+    fun `builds decorators duration timeouts and tick only actions`() {
+        val blackboard = Blackboard()
+        var attempts = 0
+        val tree = JavaBuilder.rootTree(blackboard, Consumer { root ->
+            root.sequence("sequence", Consumer { sequence ->
+                sequence.inverter("not blocked", Consumer { it.condition("blocked") { false } })
+                sequence.succeeder("best effort", Consumer { it.condition("optional") { false } })
+                sequence.retry("intake", 3, Consumer { it.condition("has sample") { attempts++ >= 2 } })
+                sequence.repeat("score twice", 2, Consumer { it.condition("scored") { true } })
+                sequence.waitMs("wait", Duration.ofSeconds(5), Consumer { it.condition("unreached") { true } })
+                sequence.action("tick only", Supplier { NodeStatus.SUCCESS })
+            })
+        })
+
+        assertEquals(NodeStatus.SUCCESS, tree.tick())
+        assertEquals(3, attempts)
     }
 }
