@@ -5,11 +5,17 @@ import com.rmsftc.bttree.blackboard.Blackboard
 import com.rmsftc.bttree.NodeStatus
 import com.rmsftc.bttree.nodes.ActionNode
 import com.rmsftc.bttree.nodes.ConditionNode
+import com.rmsftc.bttree.nodes.FallbackNode
+import com.rmsftc.bttree.nodes.InverterNode
 import com.rmsftc.bttree.nodes.ParallelNode
 import com.rmsftc.bttree.nodes.ParallelPolicy
 import com.rmsftc.bttree.nodes.ReactiveSelectorNode
+import com.rmsftc.bttree.nodes.RepeatNode
+import com.rmsftc.bttree.nodes.RetryNode
 import com.rmsftc.bttree.nodes.SequenceNode
+import com.rmsftc.bttree.nodes.SucceederNode
 import com.rmsftc.bttree.nodes.TimeoutNode
+import java.time.Duration
 import java.util.function.Consumer
 import java.util.function.Supplier
 
@@ -51,6 +57,16 @@ abstract class NodeGroupBuilder(protected val blackboard: Blackboard) {
         selector(name, init)
     }
 
+    fun fallback(name: String, init: KotlinSelectorBuilder.() -> Unit) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply(init)
+        children.add(FallbackNode(name, blackboard, nested.children.toList()))
+    }
+
+    fun fallback(name: String, init: Consumer<KotlinSelectorBuilder>) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply { init.accept(this) }
+        children.add(FallbackNode(name, blackboard, nested.children.toList()))
+    }
+
     fun condition(name: String, check: () -> Boolean) {
         children.add(ConditionNode(name, blackboard, check))
     }
@@ -61,6 +77,73 @@ abstract class NodeGroupBuilder(protected val blackboard: Blackboard) {
 
     fun action(name: String, start: Runnable? = null, tick: Supplier<NodeStatus>, end: Runnable? = null) {
         children.add(ActionNode(name, blackboard, { start?.run() }, tick, { end?.run() }))
+    }
+
+    // Decorators wrap exactly one child. The block forms require the
+    // block to build a single node (wrap several nodes in sequence()
+    // first); the node forms take an already-built node.
+    private fun singleChild(decoratorKind: String, decoratorName: String, nested: KotlinSelectorBuilder): BehaviorNode {
+        require(nested.children.size == 1) {
+            "$decoratorKind \"$decoratorName\" requires exactly one child node, " +
+                "but the block built ${nested.children.size}"
+        }
+        return nested.children.single()
+    }
+
+    fun inverter(name: String, init: KotlinSelectorBuilder.() -> Unit) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply(init)
+        children.add(InverterNode(name, blackboard, singleChild("inverter", name, nested)))
+    }
+
+    fun inverter(name: String, init: Consumer<KotlinSelectorBuilder>) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply { init.accept(this) }
+        children.add(InverterNode(name, blackboard, singleChild("inverter", name, nested)))
+    }
+
+    fun inverter(name: String, child: BehaviorNode) {
+        children.add(InverterNode(name, blackboard, child))
+    }
+
+    fun succeeder(name: String, init: KotlinSelectorBuilder.() -> Unit) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply(init)
+        children.add(SucceederNode(name, blackboard, singleChild("succeeder", name, nested)))
+    }
+
+    fun succeeder(name: String, init: Consumer<KotlinSelectorBuilder>) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply { init.accept(this) }
+        children.add(SucceederNode(name, blackboard, singleChild("succeeder", name, nested)))
+    }
+
+    fun succeeder(name: String, child: BehaviorNode) {
+        children.add(SucceederNode(name, blackboard, child))
+    }
+
+    fun retry(name: String, maxAttempts: Int, init: KotlinSelectorBuilder.() -> Unit) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply(init)
+        children.add(RetryNode(name, blackboard, maxAttempts, singleChild("retry", name, nested)))
+    }
+
+    fun retry(name: String, maxAttempts: Int, init: Consumer<KotlinSelectorBuilder>) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply { init.accept(this) }
+        children.add(RetryNode(name, blackboard, maxAttempts, singleChild("retry", name, nested)))
+    }
+
+    fun retry(name: String, maxAttempts: Int, child: BehaviorNode) {
+        children.add(RetryNode(name, blackboard, maxAttempts, child))
+    }
+
+    fun repeat(name: String, targetCount: Int, init: KotlinSelectorBuilder.() -> Unit) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply(init)
+        children.add(RepeatNode(name, blackboard, targetCount, singleChild("repeat", name, nested)))
+    }
+
+    fun repeat(name: String, targetCount: Int, init: Consumer<KotlinSelectorBuilder>) {
+        val nested = KotlinSelectorBuilder(name, blackboard).apply { init.accept(this) }
+        children.add(RepeatNode(name, blackboard, targetCount, singleChild("repeat", name, nested)))
+    }
+
+    fun repeat(name: String, targetCount: Int, child: BehaviorNode) {
+        children.add(RepeatNode(name, blackboard, targetCount, child))
     }
 
     // hardcodes reactive selector as the child of the timeout node, so that if the timeout expires, the entire subtree is invalidated
@@ -84,6 +167,15 @@ abstract class NodeGroupBuilder(protected val blackboard: Blackboard) {
                 KotlinSelectorBuilder("$name-inner", blackboard).apply { init.accept(this) }.build()
             )
         )
+    }
+
+    // Duration overloads: waitMs("intake", Duration.ofSeconds(2)) { ... }
+    fun waitMs(name: String, duration: Duration, init: KotlinSelectorBuilder.() -> Unit) {
+        waitMs(name, duration.toMillis(), init)
+    }
+
+    fun waitMs(name: String, duration: Duration, init: Consumer<KotlinSelectorBuilder>) {
+        waitMs(name, duration.toMillis(), init)
     }
 
     fun parallel(name: String, policy: ParallelPolicy, init: KotlinParallelBuilder.() -> Unit) {
