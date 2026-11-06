@@ -101,9 +101,48 @@ tree.tick();
 - **`SequenceNode`** processes children in order; it fails on the first failure and succeeds only when all children succeed.
 - **`ReactiveSelectorNode`** re-evaluates children from highest priority on every tick. A higher-priority child can preempt a lower-priority child that is running.
 - **`ParallelNode`** ticks all unfinished children. Use `ParallelPolicy.JOIN` to wait for all children, `SUCCESS` to require all children to succeed, or `FAILURE` to fail only when all children fail.
-- **`TimeoutNode`** ticks its child until the duration in milliseconds elapses, then invalidates the child and returns `FAILURE`. `waitMs` in either builder creates this timeout wrapper around a nested reactive selector.
+- **`TimeoutNode`** ticks its child until the duration in milliseconds elapses, then invalidates the child and returns `FAILURE`. `waitMs` in either builder creates this timeout wrapper around a nested reactive selector. A `java.time.Duration` overload exists for both the node constructor and `waitMs`.
+- **`InverterNode`** swaps its child's SUCCESS and FAILURE; RUNNING passes through unchanged.
+- **`SucceederNode`** turns its child's FAILURE into SUCCESS; SUCCESS and RUNNING pass through unchanged.
+- **`RetryNode`** re-ticks its child until it succeeds, up to a maximum number of attempts (a RUNNING child does not consume an attempt), then returns FAILURE.
+- **`RepeatNode`** ticks its child until it has succeeded a target number of times, then returns SUCCESS; a single child FAILURE fails it immediately.
+- **`FallbackNode`** is a selector with memory: it returns the first SUCCESS or RUNNING result, but unlike `ReactiveSelectorNode` it does not re-evaluate higher-priority children on every tick, so a running lower-priority branch is never preempted.
+
+### Parallel policies
+
+The result of a `ParallelNode` depends on its policy once every child has finished
+(any still-RUNNING child keeps the node RUNNING under every policy):
+
+| Children finished as | `JOIN` | `SUCCESS` | `FAILURE` | `ANY_SUCCESS` | `atLeast(n)` |
+| --- | --- | --- | --- | --- | --- |
+| All succeed | SUCCESS | SUCCESS | SUCCESS | SUCCESS | SUCCESS if count ≥ n |
+| All fail | SUCCESS | FAILURE | FAILURE | FAILURE | FAILURE |
+| Mixed success/failure | SUCCESS | FAILURE | SUCCESS | SUCCESS | SUCCESS if successes ≥ n, else FAILURE |
+
+Note the two surprises: `JOIN` reports SUCCESS even when every child failed (it only
+waits for all children, it does not judge them), and `FAILURE` reports SUCCESS on mixed
+results (it only fails when *all* children failed). If a failure must fail the node,
+use `SUCCESS`; if any single success is enough, use `ANY_SUCCESS`.
 
 Call `reset()` before reusing a tree when its state should return to never-ticked. Finished nodes also start fresh when ticked again, while `invalidate()` aborts only a currently running node.
+
+## Tree lifecycle
+
+- **Tick:** call `tree.tick()` once per OpMode loop. A node's `onStart()` runs once per
+  activation, `onTick()` runs every loop while active, and `onEnd()` runs when it
+  finishes or is invalidated.
+- **Restart:** a node that finished with SUCCESS or FAILURE starts fresh the next time it
+  is ticked. Composites reset their state in `onStart()`, so a sequence re-runs from its
+  first child and a timeout restarts its timer.
+- **Invalidate:** `invalidate()` aborts a node that is currently RUNNING (and calls its
+  `onEnd()` once). It is a no-op on a node that already finished, so aborting a finished
+  child never calls its `onEnd()` a second time or flips its result to FAILURE.
+- **Reset:** `reset()` returns a node (and, for composites, its descendants) to the
+  never-ticked state, aborting it first if it is running. It is optional between runs:
+  ticking a finished node already restarts it.
+- **Debugging:** `tree.toTreeString()` prints the tree with each node's name, type, and
+  current status; `tree.forEachNode { ... }` visits every node depth-first, and
+  `node.children()` lists a node's direct children.
 
 ## Blackboard, Callbacks, and Logging
 
@@ -113,6 +152,18 @@ Call `reset()` before reusing a tree when its state should return to never-ticke
 blackboard.set("target", "backdrop")
 val target = blackboard.get("target", String::class.java)
 ```
+
+Two behaviors catch people out:
+
+- **`getOrDefault()` writes the default.** When the key is missing (or holds a value of
+  the wrong type), the default is stored into the board — and its callbacks fire — before
+  it is returned. For a read with no side effects, use `getIfPresent(key, type)`, which
+  returns null instead.
+- **`remove()` and `clearAll()` also delete callbacks.** Clearing a value between
+  autonomous runs silently deregisters its interceptors. Use `removeValue(key)` to clear
+  only the value (callbacks stay) or `removeCallbacks(key)` to drop only the callbacks
+  (the value stays). `putIfAbsent(key, type, value)` stores a default only when the key
+  is absent, without the write-on-read behavior of `getOrDefault()`.
 
 Register callbacks for changes that must take effect even if the corresponding branch is not currently being ticked:
 
