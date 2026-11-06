@@ -12,6 +12,8 @@ class SequenceNode(name: String, board: Blackboard, children: List<BehaviorNode>
 
     private var currentIndex = 0
 
+    override fun children(): List<BehaviorNode> = childList
+
     override fun onStart() { currentIndex = 0 }
 
     override fun onTick(): NodeStatus {
