@@ -49,4 +49,41 @@ public interface ParallelPolicy {
         return NodeStatus.FAILURE;
     };
 
+    /**
+     * RUNNING while any child is RUNNING, otherwise SUCCESS if at
+     * least one child succeeded, FAILURE only if every child failed.
+     * Unlike FAILURE, the name says what it does. An empty child
+     * list reports FAILURE: no child succeeded.
+     */
+    ParallelPolicy ANY_SUCCESS = statuses -> {
+        if (JOIN.status(statuses) == NodeStatus.RUNNING) return NodeStatus.RUNNING;
+        for (NodeStatus status : statuses) {
+            if (status == NodeStatus.SUCCESS) return NodeStatus.SUCCESS;
+        }
+        return NodeStatus.FAILURE;
+    };
+
+    /**
+     * RUNNING while any child is RUNNING, otherwise SUCCESS when at
+     * least {@code requiredSuccesses} children succeeded, FAILURE
+     * otherwise. Use it for "two out of three sensors agree" style
+     * redundancy checks that none of the fixed policies express.
+     *
+     * @param requiredSuccesses how many children must succeed; must be at least 1.
+     */
+    static ParallelPolicy atLeast(int requiredSuccesses) {
+        if (requiredSuccesses < 1) {
+            throw new IllegalArgumentException(
+                    "requiredSuccesses must be at least 1, was " + requiredSuccesses);
+        }
+        return statuses -> {
+            if (JOIN.status(statuses) == NodeStatus.RUNNING) return NodeStatus.RUNNING;
+            int successes = 0;
+            for (NodeStatus status : statuses) {
+                if (status == NodeStatus.SUCCESS) successes++;
+            }
+            return successes >= requiredSuccesses ? NodeStatus.SUCCESS : NodeStatus.FAILURE;
+        };
+    }
+
 }
